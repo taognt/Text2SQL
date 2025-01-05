@@ -83,9 +83,33 @@ We present here a 3-step method to implement an agent capable at generating SQL 
 As described earlier, our method will consist in 3 steps.
 \subsection*{Zero-shot and prompt engineering}
 
-- Use of LLM (small)
-- prompt engineering (give example of a prompt)
-
+In order to compare different ways to obtain the expected SQL queries, we decided to test two models, one general "Gemini" and one specifically trained to generate code "IBM-Granite". Both are given the schema and a prompt as inputs.
+\\
+We also chose two approaches: the zero-shot prompt and the few-shot prompt, to witness if it makes any difference for the models. As an example of engineered prompts we have:\\
+\\
+- Zero-shot prompt: \\
+\\
+"Reply the SQL query only, without any comment, using this schema stadium : Stadium ID (number) , Location (text) , Name (text) , Capacity (number) , Highest (number) , Lowest (number) , Average (number) | singer : Singer ID (number) , Name (text) , Country (text) , Song Name (text) , Song release year (text) , Age (number) , Is male (others) | concert : concert ID (number) , concert Name (text) , Theme (text) , Stadium ID (text) , Year (text) | singer in concert : concert ID (number) , Singer ID (text)' to the question: How many singers do we have?
+SQL QUERY:"\\
+\\
+- Few-shot prompt: \\
+\\
+"Reply only the SQL query, using this schema stadium : Stadium ID (number) , Location (text) , Name (text) , Capacity (number) , Highest (number) , Lowest (number) , Average (number) | singer : Singer ID (number) , Name (text) , Country (text) , Song Name (text) , Song release year (text) , Age (number) , Is male (others) | concert : concert ID (number) , concert Name (text) , Theme (text) , Stadium ID (text) , Year (text) | singer in concert : concert ID (number) , Singer ID (text)', the same way as in the examples below:\\
+-----------\\
+EXAMPLES\\
+Question: What is the 3 most common cloud cover rates in the region of zip code 94107?
+SELECT cloud cover FROM weather WHERE zip code  =  94107 GROUP BY cloud cover ORDER BY COUNT (*) DESC LIMIT 3\\
+Question: Count the number of schools.\\
+ SELECT count(*) FROM school\\
+Question: What are the names of all campuses located at Chico?\\
+ SELECT campus FROM campuses WHERE LOCATION  =  "Chico"\\
+Question: Which colleges does each player with a name that starts with the letter D  who tried out go to?
+ SELECT T1.cName FROM  tryout AS T1 JOIN player AS T2 ON T1.pID  =  T2.pID WHERE T2.pName LIKE 'D\%'\\
+Question: What are the names of all the players who received a yes during tryouts, and also what are the names of their colleges?\\
+ SELECT T1.pName ,  T2.cName FROM player AS T1 JOIN tryout AS T2 ON T1.pID  =  T2.pID WHERE T2.decision  =  'yes'\\
+-----------\\
+QUESTION: What is the average, minimum, and maximum age for all French singers?\\
+SQL QUERY:"\\
 \subsection*{Fine-Tuning LLM}
 
 - Explain how to fine tune them:
