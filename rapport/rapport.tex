@@ -59,7 +59,9 @@ Name:	Fidelin-Durand Julian, Isabelle Neuveu, Tao Guinot, Florian Morel
 \end{center}
 \section*{Abstract}
 
-2/3 lines of abstract
+We present here  3-step method to implement an agent capable of generating SQL queries from a user's question.
+
+We first introduce the problem statement to then present the overall architecture. We present experimentation done so far and discussions. 
 
 \section*{Problem Statement}
 
@@ -111,13 +113,13 @@ Question: What are the names of all the players who received a yes during tryout
 QUESTION: What is the average, minimum, and maximum age for all French singers?\\
 SQL QUERY:"\\
 \subsection*{Fine-Tuning LLM}
-
-- Explain how to fine tune them:
-What to give ? SQL Schema, should we re arrange the schema description to be more comprehensive for the LLM ? Mask training ?
+The second step method will consist of fine tuning an LLM on the provided \textit{\href{https://huggingface.co/datasets/richardr1126/spider-schema/viewer?row=1}{dataset}}, composed of questions, corresponding queries, and tables' schema.
+\\
+For now, this step has been left to explore.
 
 \subsection*{Agent-based architecture}
 
-An agent is an object aiming at choosing a sequence of actions to take. In chains, those actions are hardcoded while agents use language models to determine which action to take and in which order. A agent built to interact with databse would look like this:
+An agent is an object aiming to choose a sequence of actions to take. In chains, those actions are hardcoded while agents use language models to determine which action to take and in which order. An agent built to interact with databse would look like this:
 
 \begin{itemize}
     \item Itent classification is performed to better understand the user's query
