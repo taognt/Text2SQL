@@ -193,18 +193,19 @@ To evaluate the LLM performance, we set different metrics:
     \item Identifier metric
     \item Logical metric
 \end{enumerate}
+
 \\
 Let us review those metrics.
 
 \subsubsection*{Keyword metric}
 
-The \texttt{keyword\_score} is a metric that evaluates the similarity between the keywords of two SQL queries (the predicted query and the ground truth query). It is based on the F1 score, which measures the balance between precision and recall. The formula for the F1 score is given by:
+The \texttt{keyword\_score} is a metric that evaluates the similarity between the keywords of two SQL queries (SELECT, WHERE, FROM, GROUP BY...). Doing an analogy with a binary classification problem we can compute the F1-score as follows :
 
 \[
 \text{F1 score} = \frac{TP}{TP + 0.5 \times (FP + FN)}
 \]
 
-Where:
+\noindent Where:
 
 \begin{itemize}
   \item \( TP \) (True Positives) is the number of keywords that appear in both the predicted query and the ground truth query.
@@ -212,13 +213,7 @@ Where:
   \item \( FN \) (False Negatives) is the number of keywords present in the ground truth query but not in the predicted query.
 \end{itemize}
 
-The \texttt{keyword\_score} is computed as follows:
-\[
-\text{keyword\_score} = \text{F1 score}(keywords_{\text{pred}}, keywords_{\text{gt}})
-\]
-Where \( keywords_{\text{pred}} \) and \( keywords_{\text{gt}} \) are the sets of keywords extracted from the predicted and ground truth SQL queries, respectively.
-
-The \texttt{keyword\_score} ranges from 0 to 1:
+\noindent The \texttt{keyword\_score} ranges from 0 to 1:
 \begin{itemize}
   \item A score of 1 indicates perfect overlap in the keywords between the predicted and ground truth queries.
   \item A score of 0 indicates no overlap in keywords.
@@ -226,26 +221,16 @@ The \texttt{keyword\_score} ranges from 0 to 1:
 
 \subsubsection*{Identifier metric}
 
-The \texttt{identifier\_score} is a metric that compares the identifiers (such as table names and column names) between the predicted SQL query and the ground truth query. It is calculated by computing the F1 score for identifiers for each common keyword between the two queries. The steps are as follows:
+The \texttt{identifier\_score} is a metric that compares the identifiers (such as table names, column names, max rows to return) between two queries. The principle is very similar to that of the keyword metric.
 
 \begin{enumerate}
-    \item Identify common keywords between the predicted query and the ground truth query.
-    \item For each common keyword, retrieve the identifiers associated with that keyword in both queries.
-    \item Compute the F1 score for the identifiers of the predicted and ground truth queries for each keyword:
-    \[
-    \text{F1}_{\text{identifier}}(k) = \frac{TP_k}{TP_k + 0.5 \times (FP_k + FN_k)}
-    \]
-    where:
-    \begin{itemize}
-        \item \( TP_k \) is the number of identifiers common between the predicted and ground truth queries for keyword \( k \).
-        \item \( FP_k \) is the number of identifiers in the predicted query but not in the ground truth for keyword \( k \).
-        \item \( FN_k \) is the number of identifiers in the ground truth query but not in the predicted query for keyword \( k \).
-    \end{itemize}
-    \item The final \texttt{identifier\_score} is the average F1 score across all common keywords:
-    \[
-    \text{identifier\_score} = \frac{1}{|\text{commun\_keywords}|} \sum_{k \in \text{commun\_keywords}} \text{F1}_{\text{identifier}}(k)
-    \]
+    \item Both queries are normalized and split at the SQL keyword level. \\ (example : SELECT name, age / FROM client / WHERE client.age > 18/ LIMIT 5)
+    \item The F1 score is calculated for the identifiers inside each split (i.e. identifiers following each SQL keyword).
+    \item The F1 scores are averaged to finally have a single value in $[0, 1]$ for the pair of queries.
 \end{enumerate}
+
+With the \texttt{identifier\_score}, we can check if the model is able to get the relevant attributes from the relevant tables, without considering the position of the words in a given SQL query.
+For instance : '\texttt{SELECT name, age}' is equivalent to '\texttt{SELECT age, name}'.
 
 \subsubsection*{Logical metric}
 
