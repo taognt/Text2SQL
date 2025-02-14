@@ -5,117 +5,105 @@ from sqlparse.sql import Identifier, IdentifierList
 from sqlparse.tokens import Keyword, DML, Whitespace
 from parameters import classification_prompt, prompt_schema, score_prompt
 from itertools import permutations
+import sqlite3
+from sqlite3 import Cursor
+import random
+import string
+import pandas as pd
 
+convert_type = {
+    "text": "TEXT",
+    "number": "INTEGER",
+    "time": "TEXT",
+    "boolean": "TEXT",
+    "others": "TEXT",
+}
 
-def get_words_between_keywords(sql: str) -> list[tuple[str, list[str]]]:
+def generate_synth_data(type_: str, pimary: str):
 
-    """
-    Parse a SQL request to transform it into this format :
+    nb_elem = 50
+    word_lenght = 6
+    max_integer = 60
 
-    [('SELECT', ['Status']),
-    ('FROM', ['city']),
-    ('GROUP BY', ['Status']),
-    ('ORDER BY', ['COUNT(*)', 'DESC']),
-    ('LIMIT', ['1'])]
-    """
-
-    parsed = sqlparse.parse(sql)[0]  # Parse the SQL statement
-    tokens = parsed.tokens
+    if type_=="TEXT" and pimary=="PRIMARY KEY":
+        unique_strings = set()
+        while len(unique_strings) < nb_elem:
+            unique_strings.add(''.join(random.choices(string.ascii_uppercase + string.digits, k=word_lenght)))
+        return list(unique_strings)
     
-    words_between = []  # To store words between keywords
-    current_keywords = []
-    buffer = []
-
-    for token in tokens:
-        if token.ttype in (Keyword, DML):  # Check if the token is a keyword
-            if buffer:  # If there are words in the buffer, add them
-                words_between.append((current_keywords[-1] if current_keywords else None, buffer))
-                buffer = []
-            current_keywords.append(token.value.upper())
-        elif token.ttype is Whitespace:  # Ignore whitespace
-            continue
-        else:
-            if isinstance(token, (Identifier, IdentifierList)):
-                buffer.append(token.get_real_name() or token.value)
-            else:
-                buffer.append(token.value)
+    elif type_=="TEXT" and not pimary=="PRIMARY KEY":
+        return [
+            ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(word_lenght))
+            for _ in range(nb_elem)
+        ]
     
-    if buffer:  # Add remaining buffer
-        words_between.append((current_keywords[-1] if current_keywords else None, buffer))
+    elif type_=="INTEGER" and not pimary=="PRIMARY KEY":
+        return random.choices(list(range(max_integer)), k=nb_elem)
     
-    return words_between
-
-
-# def compute_metrics(pred: str, ground_truth: str):
-
-#     """Compare 2 queries on their semantic
+    elif type_=="INTEGER" and  pimary=="PRIMARY KEY":    
+        return random.sample(list(range(max_integer)), k=nb_elem)
     
-#     Return :
+    else:
+        print("ERROR TYPE")
+
+def generate_synthetic_db(db_schema: pd.DataFrame) -> dict[str, Cursor]:
+    sql_databases: dict[str, Cursor] = {}
+
+    for i, db in db_schema.iterrows():
+
+        conn = sqlite3.connect(":memory:")
+        sql_databases[db["db_id"]] = conn.cursor()
+
+        schema = re.split(r'\|', db["Schema (values (type))"])
+
+        p_keys_dict = {}
+        for p_key in re.split(r'\|', db["Primary Keys"]):
+            if len(p_key) > 0:
+                p_key_split = re.split(r':', p_key)
+                p_keys_dict[p_key_split[0].strip()] = p_key_split[1].strip()
+
+        for table in schema:
+            table_split = re.split(r':', table)
+            table_name = table_split[0].strip()
+
+            att_names = []
+            att_types = []
+            att_synth_data = []
+
+            rows_att = []
+
+            for attribute_type in re.split(r',', table_split[1]):
+                if match_ := re.match(r'(.*)\s\((.*)\)', attribute_type):
+                    att_name = match_.group(1).strip().replace(" ", "_")
+                    att_type = match_.group(2).strip()
+                    
+                    # Primary Key
+                    if table_name in p_keys_dict.keys() and p_keys_dict[table_name] == att_name:
+                        primary = "PRIMARY KEY"
+                    else:
+                        primary = None
+
+                    att_names.append(att_name)
+                    att_types.append(att_type)
+                    att_synth_data.append(generate_synth_data(convert_type[att_type], primary))
+
+                    rows_att.append(f'"{att_name}" {convert_type[att_type]}{" "+primary if primary is not None else ""}')
+
+            create_request = f"CREATE TABLE \"{table_name}\" (\n    {',\n    '.join(rows_att)}\n)"
+            insert_request = f"INSERT INTO \"{table_name}\" (\"{'\", \"'.join(att_names)}\") VALUES ({', '.join(['?']*len(att_names))})"
+
+            try:
+                sql_databases[db["db_id"]].execute(create_request)
+                sql_databases[db["db_id"]].executemany(insert_request, list(zip(*att_synth_data)))
+            except Exception as e:
+                print(f">>> ERROR - i={i} / db : {db["db_id"]} / table : {table_name}")
+                print(e, "\n")
+                print(create_request)
+                print(insert_request, "\n")
     
-#     - valid_pred : True if te pred query is semanticaly correct, False otherwise. It is not really reliable.
-#     - keyword_score [0, 1]: Equivalent of F1 score for SQL keywords presence. The pred query must contains the keywords of the ground truth without adding new keywords.
-#     - identifier_score [0, 1]: For each keywords, f1 score is computed for identifiers words (table name, attributes...). The average gives the identifier_score.
-    
-#     """
+    return sql_databases
 
-
-#     # Check if the predicted query is semanticaly correct
-#     parsed_pred = sqlvalidator.parse(pred)
-#     valid_pred = False
-#     try:
-#         if parsed_pred.is_valid():
-#             valid_pred = True
-#     except:
-#         valid_pred = False
-
-#     # Normalize queries
-#     normalized_pred = sqlparse.format(pred, reindent=False, keyword_case='upper')
-#     normalized_gt = sqlparse.format(ground_truth, reindent=False, keyword_case='upper')
-
-#     # Compare Semantic of queries
-#     tokens_pred = get_words_between_keywords(normalized_pred)
-#     tokens_gt = get_words_between_keywords(normalized_gt)
-
-#     """example of tokens_pred or tokens_gt : 
-    
-#     [('SELECT', ['Status']),
-#     ('FROM', ['city']),
-#     ('GROUP BY', ['Status']),
-#     ('ORDER BY', ['COUNT(*)', 'DESC']),
-#     ('LIMIT', ['1'])]
-#     """
-
-#     def compute_f1score(a: set, b: set):
-#         """Equivalent of F1 score metric"""
-#         TP = len(a & b)
-#         FP = len(a - b)
-#         FN = len(b - a)
-
-#         return TP / (TP + 0.5*(FP + FN))
-
-#     ## Keyword score
-
-#     keywords_pred = set([elem[0] for elem in tokens_pred])
-#     keywords_gt = set([elem[0] for elem in tokens_gt])
-
-#     keyword_score = compute_f1score(keywords_pred, keywords_gt)
-    
-#     ## Identifier score
-
-#     identifier_score = 0
-#     commun_keywords = keywords_pred & keywords_gt
-#     for kw in list(commun_keywords):
-#         identifiers_pred = next((item for item in tokens_pred if item[0] == kw), None)[1]
-#         identifiers_gt = next((item for item in tokens_gt if item[0] == kw), None)[1]
-
-#         identifier_score += compute_f1score(set(identifiers_pred), set(identifiers_gt))
-    
-#     identifier_score = identifier_score / len(commun_keywords)
-
-#     return valid_pred, keyword_score, identifier_score, tokens_pred, tokens_gt
-
-
-def compute_metrics(pred: str, ground_truth: str):
+def compute_metrics(pred: str, ground_truth: str, db_id: str, sql_databases: dict[str, Cursor]):
 
     """Compare 2 queries on their semantic
     
@@ -178,5 +166,24 @@ def compute_metrics(pred: str, ground_truth: str):
 
     identifiers_score = sum(identifiers_scores)/len(identifiers_scores)
 
+    #### result_metric
+    cursor = sql_databases[db_id]
 
-    return valid_pred, keyword_score, identifiers_score
+    try:
+        cursor.execute(pred)
+        results1 = cursor.fetchall()
+    
+        cursor.execute(ground_truth)
+        results2 = cursor.fetchall()
+
+        result_metric = int(results1==results2)
+    except Exception as e:
+        print(f"ERROR (db :{db_id}) : {e}")
+        result_metric = 0
+
+    return {
+        "valid_pred": valid_pred,
+        "keyword_score": keyword_score,
+        "identifiers_score": identifiers_score,
+        "result_metric": result_metric
+    }
