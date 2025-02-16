@@ -10,6 +10,8 @@ class LLM:
         Generate a SQL query based on the schema and question.
         """
         prompt_completed = prompt.format(question=question, schema=schema)
+
+        print(f"\nprompt: {prompt_completed}\n")
         generated_query = self.model.invoke(prompt_completed)
 
         return generated_query

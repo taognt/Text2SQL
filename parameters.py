@@ -4,6 +4,7 @@ classification_prompt = """Determine if the two SQL queries are logically equiva
 
 - Focus on the logical structure and intent of the queries, not superficial differences such as formatting or column aliases.
 - Be indulgent with column names that differ slightly (e.g., column1 vs. col1) but ensure that logic and relationships between tables remain consistent.
+- Be indulgent with capital letter (min and MIN are the same for example)
 - If the queries are not equivalent, provide a brief correction or explanation of how one query could be adjusted to match the other.
 - Provide your answer as 'Yes' or 'No' only, followed by the correction if applicable.
 
