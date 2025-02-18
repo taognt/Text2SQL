@@ -389,7 +389,26 @@ Here, we observe the limitations of task-specific training and how larger models
 With few-shot prompting, the Granite model benefits from additional context, which helps it generate more accurate queries and reduces hallucinations. The schema linking further enhances the quality of the generated queries by ensuring the correct column names and structure are used, allowing the model to determine when a join is necessary.
 However, SQLCoder does not benefit as much from prompt engineering due to its smaller size and its specialized training on specific types of prompts, which limits its adaptability.
 
-  
+\begin{itemize}
+\item Experimental Results for Ministral model
+\end{itemize}
+
+To compare with the two models presented before, we also tested the ministral model, which is a general LLM, on the same task. The following results are obtained without specific training.
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{|c|c|c|c|c|}
+        \hline
+         \textbf{Prompt}& \textbf{Valid} & \textbf{keyword}&\textbf{Identifier}& \textbf{results}\\
+         \hline
+         Zero shot& 1.0&0.965&0.445&0.223 \\
+         Few shot& 1.0&0.97&0.551&0.605\\
+         \hline
+    \end{tabular}
+    \caption{Results of Ministral without fine-tuning}
+    \label{tab:my_label}
+\end{table}
+As it can be seen in the last column, the performance of the model are way lower than the specialized ones. Ministral seems to face difficulties when it comes to the understanding and re-use the schema of the database. It often makes mistakes in the naming of attributes (for example, "Country" is replaced by "Citizenship") but the few shot strategy enable it to perform way better. This leads to consider a fine-tuned model which learned the table and their attributes as well as the expected format of the gold answers. 
 \section*{Conclusion}
 
 Our evaluations involved generating SQL queries from text using the Granite model, which is specialized in code, by applying prompt engineering with the table description from our database. However, the results remain insufficient, particularly in terms of the identifier score.\\
