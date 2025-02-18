@@ -173,7 +173,16 @@ Fine-tuning is a training technique used to adapt a pre-trained Large Language M
 LoRA is designed to optimize efficiency by reducing the computational and memory costs of adapting a model. Instead of modifying all model weights directly, LoRA introduces low-rank adaptation matrices in specific layers—typically in the linear transformation layers of the attention mechanism.
 
 During our experiments, we attempted multiple times to implement LoRA but encountered failures due to insufficient VRAM resources. We used an NVIDIA A100 GPU with 40GB of VRAM on Google Colab, but the available resources were not sufficient to successfully fine-tune the model.
-
+\\
+\textbf{-Fine-Tuning using MistralAI Plateforme}
+To do so, we had to build training data with the right format. The Mistral plateforme for training requires samples written as jsonl files with the structure:
+\begin{figure}
+    \centering
+    \includegraphics[width=0.8\linewidth]{mistral_fine_tuning.png}
+    \caption{Mistral AI recommended structure}
+    \label{fig:enter-label}
+\end{figure}
+Then the training file was provided to the plateforme, the learning rate suggested was $10^{-5}$ since only the structure (table, attribute) was to be learned.
 
 \subsection*{Agent-based architecture}
 
@@ -378,7 +387,7 @@ In contrast, SQLCoder-7B-2, based on CodeLlama-7B, is specifically designed for 
 
 Here, we observe the limitations of task-specific training and how larger models can outperform smaller, task-oriented models even in their specialized domain.
 With few-shot prompting, the Granite model benefits from additional context, which helps it generate more accurate queries and reduces hallucinations. The schema linking further enhances the quality of the generated queries by ensuring the correct column names and structure are used, allowing the model to determine when a join is necessary.
-However, SQLCoder does not benefit as much from prompt engineering due to its smaller size and its specialized training on specific types of prompts, which limits its adaptability
+However, SQLCoder does not benefit as much from prompt engineering due to its smaller size and its specialized training on specific types of prompts, which limits its adaptability.
 
   
 \section*{Conclusion}
