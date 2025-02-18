@@ -85,37 +85,95 @@ We present here a 3-step method to implement an agent capable at generating SQL 
 As described earlier, our method will consist in 3 steps.
 \subsection*{Zero-shot and prompt engineering}
 
-In order to compare different ways to obtain the expected SQL queries, we decided to test two models, one general "Gemini" and one specifically trained to generate code "IBM-Granite". Both are given the schema and a prompt as inputs.
+In order to compare different ways to obtain the expected SQL queries, we decided to test three models, one general "Mistral" and two specifically trained to generate code "IBM-Granite" and "SQLcoder". We gave a prompt with the schema of the database as inputs. \\
+
+The schema of our database is retrieved in the following format:  
+Each table is represented as:  
+\text{table\_name}: \text{column1 (type)}, \text{column2 (type)},
+where each column is defined by its name and data type in parentheses, and tables are separated by \textbf{|}.  
+For example, in the \textbf{concert\_singer} database, the schema is structured as follows:  
+\textit{Stadium ID (number), Location (text), Name (text), Capacity (number), Highest (number), Lowest (number), Average (number) | singer : Singer ID (number), Name (text), Country (text), Song Name (text), Song release year (text), Age (number), Is male (others) | concert : concert ID (number), concert Name (text), Theme (text), Stadium ID (text), Year (text) | singer in concert : concert ID (number), Singer ID (text)}\\
+
+
+
+We chose three approaches: the zero-shot prompt and the few-shot prompt, and the schema link prompt to witness if it makes any difference for the models. As an example of engineered prompts we have:\\
 \\
-We also chose two approaches: the zero-shot prompt and the few-shot prompt, to witness if it makes any difference for the models. As an example of engineered prompts we have:\\
+\textbf{- Zero-shot prompt:} \\
 \\
-- Zero-shot prompt: \\
+\textit{"Reply the SQL query only, without any comment, using this schema: {schema} to the question: How many singers do we have?
+SQL QUERY:"}\\
 \\
-"Reply the SQL query only, without any comment, using this schema stadium : Stadium ID (number) , Location (text) , Name (text) , Capacity (number) , Highest (number) , Lowest (number) , Average (number) | singer : Singer ID (number) , Name (text) , Country (text) , Song Name (text) , Song release year (text) , Age (number) , Is male (others) | concert : concert ID (number) , concert Name (text) , Theme (text) , Stadium ID (text) , Year (text) | singer in concert : concert ID (number) , Singer ID (text)' to the question: How many singers do we have?
-SQL QUERY:"\\
+\textbf{- Few-shot prompt:} \\
 \\
-- Few-shot prompt: \\
-\\
-"Reply only the SQL query, using this schema stadium : Stadium ID (number) , Location (text) , Name (text) , Capacity (number) , Highest (number) , Lowest (number) , Average (number) | singer : Singer ID (number) , Name (text) , Country (text) , Song Name (text) , Song release year (text) , Age (number) , Is male (others) | concert : concert ID (number) , concert Name (text) , Theme (text) , Stadium ID (text) , Year (text) | singer in concert : concert ID (number) , Singer ID (text)', the same way as in the examples below:\\
+\textit{"You are an assistant specializing in generating SQL queries. The database is organized into several tables, each of which is described in the following form:
+- **Table name** followed by a colon (`:`)
+- **List of columns** with each column :
+ - Its name
+ - Its data type (`number` for a number, `text` for a character string, etc.)
+ This is the database schema:{schema}".} \\
 -----------\\
-EXAMPLES\\
-Question: What is the 3 most common cloud cover rates in the region of zip code 94107?
-SELECT cloud cover FROM weather WHERE zip code  =  94107 GROUP BY cloud cover ORDER BY COUNT (*) DESC LIMIT 3\\
+\textit{EXAMPLES\\
+Question: What is the 3 most common cloud cover rates in the region of zip code 94107?\\
+SELECT cloud cover FROM weather WHERE zip code = 94107 GROUP BY cloud cover ORDER BY COUNT (*) DESC LIMIT 3\\
 Question: Count the number of schools.\\
- SELECT count(*) FROM school\\
+SELECT count(*) FROM school\\
 Question: What are the names of all campuses located at Chico?\\
- SELECT campus FROM campuses WHERE LOCATION  =  "Chico"\\
-Question: Which colleges does each player with a name that starts with the letter D  who tried out go to?
- SELECT T1.cName FROM  tryout AS T1 JOIN player AS T2 ON T1.pID  =  T2.pID WHERE T2.pName LIKE 'D\%'\\
+SELECT campus FROM campuses WHERE LOCATION = "Chico"\\
+Question: Which colleges does each player with a name that starts with the letter D who tried out go to?\\
+SELECT T1.cName FROM tryout AS T1 JOIN player AS T2 ON T1.pID = T2.pID WHERE T2.pName LIKE 'D\%'\\
 Question: What are the names of all the players who received a yes during tryouts, and also what are the names of their colleges?\\
- SELECT T1.pName ,  T2.cName FROM player AS T1 JOIN tryout AS T2 ON T1.pID  =  T2.pID WHERE T2.decision  =  'yes'\\
+SELECT T1.pName, T2.cName FROM player AS T1 JOIN tryout AS T2 ON T1.pID = T2.pID WHERE T2.decision = 'yes'\\
 -----------\\
 QUESTION: What is the average, minimum, and maximum age for all French singers?\\
-SQL QUERY:"\\
+SQL QUERY:}\\
+
+\textbf{- Schema Linking  prompt:} \\
+
+
+We implement an \texttt{extract\_schema\_links} function that takes as input a question and a schema, then identifies table and column names in the SQL schema that match words from the user's question. It normalizes the text by converting it to lowercase and handling variations. The function then checks if any table or column names appear in the question; if a match is found, it stores the table name in \texttt{schema\_links} as a key and maps the column name to its corresponding table.  
+
+For example, given the question:  
+\begin{quote}
+    \textit{"Find all employees and their salaries"}
+\end{quote}
+and the schema:  
+\begin{quote}
+    \textit{"employees: id, name, salary | departments: id, name"}
+\end{quote}
+the output will be the dictionary:  
+\begin{quote}
+    \texttt{\{'employees': 'employees', 'salary': 'employees'\}}
+\end{quote}
+
+Then, the \texttt{generate\_sql\_with\_schema\_links} function creates a prompt for SQL query generation using these schema links:
+\begin{verbatim}
+schema_links = extract_schema_links(question, schema)
+
+prompt_schema_linking = (
+    "You are an SQL assistant. The database contains the following tables:\n\n"
+    "{schema}\n\n"
+    "The following question must be converted into SQL. Make sure to correctly associate the terms "
+    "from the question with the corresponding columns and tables.\n\n"
+    "Question: {question}\n\n"
+    "The identified matches between the question and the schema are:\n"
+    "{schema_links}\n\n"
+    "Generate the SQL query taking these correspondences into account:\nSQL:")
+\end{verbatim}
+
+
 \subsection*{Fine-Tuning LLM}
 The second step method will consist of fine tuning an LLM on the provided \textit{\href{https://huggingface.co/datasets/richardr1126/spider-schema/viewer?row=1}{dataset}}, composed of questions, corresponding queries, and tables' schema.
 \\
 For now, this step has been left to explore.
+\\
+Fine-tuning is a training technique used to adapt a pre-trained Large Language Model (LLM) to a specific task. Instead of training a model from scratch—which is costly in terms of data and computation—fine-tuning adjusts the weights of an existing model by re-training it on a task-specific dataset. There are various fine-tuning approaches, ranging from full model re-weighting to more lightweight methods. Each method has its own advantages and drawbacks, and we will present some of the techniques we applied in our project.\\
+\\
+\textbf{-Fine-Tuning with LoRA (Low-Rank Adaptation)}\\
+\\
+LoRA is designed to optimize efficiency by reducing the computational and memory costs of adapting a model. Instead of modifying all model weights directly, LoRA introduces low-rank adaptation matrices in specific layers—typically in the linear transformation layers of the attention mechanism.
+
+During our experiments, we attempted multiple times to implement LoRA but encountered failures due to insufficient VRAM resources. We used an NVIDIA A100 GPU with 40GB of VRAM on Google Colab, but the available resources were not sufficient to successfully fine-tune the model.
+
 
 \subsection*{Agent-based architecture}
 
@@ -300,39 +358,30 @@ Equivalence Score (0-1, with explanation):"""
   \begin{itemize}
   \item Experimental Results based on Evaluation Metrics
   \end{itemize}
-  We tested the Gemini model on a few examples, and the results seemed quite good an promising. However, it was not possible to evaluate it on the entire dataset using Google Colab due to exhausted resources. We will try to address this issue in future work.We have displayed the results obtained from the evaluation of  Granite models in the table below.
+  We are testing with the three différents prompts the two pretrained models for generating SQL queries: \textbf{IBM Granite} and \textbf{ISQLCoder-7B-2}.
+The key feature of the Granite model is its large scale, having been trained on 3 trillion tokens from 116 programming languages to develop a deep understanding of syntax. Additionally, a second training phase with 500 billion high-quality tokens enhanced its reasoning and ability to follow instructions.
+In contrast, SQLCoder-7B-2, based on CodeLlama-7B, is specifically designed for text-to-SQL tasks. It enables non-technical users to generate SQL queries for data analysis. Updated on Feb 7, 2024, it offers improved performance, especially for joins, but should only be used with read-only database access. In the table below, the value of the \textbf{compute metric} is displayed, which is the reference metric of our Spider dataset.\\
 
-  
-  \begin{table}[h]
+\begin{table}[h]
     \centering
-    \small % Réduction de la taille du texte
-    \begin{tabular}{|c|c|c|c|}
+    \small
+    \begin{tabular}{|l|c|c|c|}
         \hline
-        & \textbf{Without Database schema} & \multicolumn{2}{c|}{\textbf{With Database schema}} \\ \hline
-        & Zero-shot prompting & Zero-shot prompting & Few-shot examples \\ \hline
-        \textbf{Keyword score} & 0.83 & 0.78 & 0.83 \\ \hline
-        \textbf{Identifier score} & 0.18 & 0.36 & 0.35 \\ \hline
+        \textbf{Model} & \textbf{Zero shot} & \textbf{Few shot} & \textbf{Schema link} \\ \hline
+        Granite model & 0.70 & 0.72 & 0.75 \\ \hline
+        SQLCoder    & 0.65 & 0.65 & 0.63 \\ \hline
     \end{tabular}
-    \caption{Evaluation metrics on Granite model}
-    \label{tab:comparison}
-  \end{table}
+    \caption{Value of compute metric for Granite model and SQLCoder.}
+    \label{tab:evaluation_metrics}
+\end{table}\\
+
+
+Here, we observe the limitations of task-specific training and how larger models can outperform smaller, task-oriented models even in their specialized domain.
+With few-shot prompting, the Granite model benefits from additional context, which helps it generate more accurate queries and reduces hallucinations. The schema linking further enhances the quality of the generated queries by ensuring the correct column names and structure are used, allowing the model to determine when a join is necessary.
+However, SQLCoder does not benefit as much from prompt engineering due to its smaller size and its specialized training on specific types of prompts, which limits its adaptability
+
   
-  \begin{itemize}
-  \item Error Analysis
-  \end{itemize}
-  
-  The evaluations  conduct without including the data table information on the same validation set with zero-shot prompting  obtain: a Keyword\_score = 0.82 and an Identifier\_score = 0.16. 
-This indicates that while the structure of the query generated by the model is correct, the model lacks information about the table and attribute names.\\
-For example, for the valid SQL query:\\ \textit{"select production\_code ,  channel from cartoon order by original\_air\_date desc limit 1;"\\}
-We obtain without including the table schema in the prompt the sql query : \\
-\textit{“SELECT production\_code, channel FROM \textcolor{red}{Cartoons} ORDER BY \textcolor{red}{release\_date} DESC LIMIT 1;”}
-This query returns a table name "Cartoons" and an attribute name "release\_date", which the model generated but do not match those of our table. On the other hand, when we include the table information in the prompt, we obtain the correct SQL query.\vspace{1cm}
-
-However, it is noticeable that even when providing the context of the database, the identifier score remains low. The identifier score is equal to 0.36. This is due to the fact that our normalization in our metric does not normalize keywords like 'average', 'min', 'max'... ,  but only keywords like 'Select'. This may be corrected in the future. Additionally, the segmentation used to evaluate the identifier score can contain multiple words, which reduces the probability that the segmentation is correct. 
-
-
-
-\section*{Discussion}
+\section*{Conclusion}
 
 Our evaluations involved generating SQL queries from text using the Granite model, which is specialized in code, by applying prompt engineering with the table description from our database. However, the results remain insufficient, particularly in terms of the identifier score.\\
 
