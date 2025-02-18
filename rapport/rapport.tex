@@ -258,13 +258,19 @@ The goal is to produce a SQL query as close as a groundtruth query provided in a
 
 To evaluate the LLM performance, we set different metrics:
 \begin{enumerate}
+    \item Semantic metric
     \item Keyword metric
     \item Identifier metric
     \item Logical metric
+    \item Execution metric
 \end{enumerate}
 
 \\
 Let us review those metrics.
+
+\subsubsection*{Semantic metric}
+
+The semantic metric is one of the most important, it aims to determine whether a query is acceptable with no regard to the database it will be executed one. Only the correctness of the query matters.
 
 \subsubsection*{Keyword metric}
 
@@ -303,9 +309,6 @@ For instance : '\texttt{SELECT name, age}' is equivalent to '\texttt{SELECT age,
 
 \subsubsection*{Logical metric}
 
-
-
-
 The Logical metric, or \texttt{equivalence\_score} method, is designed to return a numerical score representing how similar a generated SQL query is to a groundtruth query, based on the evaluation of an orchestrator LLM. This score is computed by invoking a separate model that compares the two queries and returns a score.
 \\
 \\
@@ -318,11 +321,13 @@ The Logical metric, or \texttt{equivalence\_score} method, is designed to return
 \\
 \textbf{Explanation}
 \\
+
 The method is aiming at returning a score between 0 and 1 and give some explanation of the result. The numerical score is found from the LLM answer with the regular expression pattern \texttt{\textbackslash s*([0-9]*\.?[0-9]+)}.
 \\
-
+\\
 \textbf{Return Values}
 \\
+
 The method returns a tuple containing:
 \begin{itemize}
     \item A \texttt{float} representing the equivalence score between the two queries.
@@ -351,10 +356,12 @@ Generated query:
 \{generated\_query\}
 Equivalence Score (0-1, with explanation):"""
 
+\subsubsection*{Execution metric}
 
-
-
-
+In the second part of this project, we realized that an important metric was missing for evaluating our models: the execution metric. This metric compares the results of the actual query with those of the generated query on the database.
+Since the databases were not provided and we only had their structure, we generated synthetic databases to be able to compute this metric.
+\\
+\\
 
 \section*{Experimentation}
 \subsection*{Results for Zero-shot and prompt engineering}
@@ -399,7 +406,7 @@ To compare with the two models presented before, we also tested the ministral mo
     \centering
     \begin{tabular}{|c|c|c|c|c|}
         \hline
-         \textbf{Prompt}& \textbf{Valid} & \textbf{keyword}&\textbf{Identifier}& \textbf{results}\\
+         \textbf{Prompt}& \textbf{Semantic} & \textbf{keyword}&\textbf{Identifier}& \textbf{Execution}\\
          \hline
          Zero shot& 1.0&0.965&0.445&0.223 \\
          Few shot& 1.0&0.97&0.551&0.605\\
@@ -411,12 +418,8 @@ To compare with the two models presented before, we also tested the ministral mo
 As it can be seen in the last column, the performance of the model are way lower than the specialized ones. Ministral seems to face difficulties when it comes to the understanding and re-use the schema of the database. It often makes mistakes in the naming of attributes (for example, "Country" is replaced by "Citizenship") but the few shot strategy enable it to perform way better. This leads to consider a fine-tuned model which learned the table and their attributes as well as the expected format of the gold answers. 
 \section*{Conclusion}
 
-Our evaluations involved generating SQL queries from text using the Granite model, which is specialized in code, by applying prompt engineering with the table description from our database. However, the results remain insufficient, particularly in terms of the identifier score.\\
-
-Our future work will focus on refining our evaluation metrics and testing other models specialized in SQL that are less voluminous than the Granite model, which is trained on 116 programming languages. We will also explore less specialized models to compare their performance.
-Furthermore, we observed that our dataset consists of pairs of natural language questions that are similar but phrased differently while expecting the same SQL query. This insight suggests that evaluating the robustness of our model could be valuable.\\
-
-Finally, integrating all our databases into a Retrieval-Augmented Generation (RAG) system could enable the generation of more complex and accurate queries, involving multiple databases through joins. Additionally, we will explore agent-based architectures to further enhance query generation.
+In this project, we explored the generation of SQL queries using LLMs. Different types of models have been tested to determine which one would be the most suitable for this task. To compare them, we used many metrics with various goals such as analysing the correctness of the query, its proximity with the expected one, or its results when executed on the database. For the latter to work, we had to generate a synthetic database with the same structure as XLangAI Spider using a LLM to populate it once the table and attribute are retrieved. Plus, we studied the zero shot, few shot, and schema linking prompt engineering approaches for standard models and a fine-tuned one.\\
+There are still opportunities to improve the accuracy of our SQL queries, particularly through enhanced post-processing. One effective approach is Majority Voting, where multiple versions of the SQL query are generated for the same question, compared, and the most frequently occurring or most compliant with SQL constraints and the database schema is selected. In some cases, syntax and logic checks can also be applied to prevent errors.
 
 \section*{Bibliography}
 \bibliographystyle{plain}
