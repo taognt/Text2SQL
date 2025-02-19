@@ -397,10 +397,10 @@ With few-shot prompting, the Granite model benefits from additional context, whi
 However, SQLCoder does not benefit as much from prompt engineering due to its smaller size and its specialized training on specific types of prompts, which limits its adaptability.
 
 \begin{itemize}
-\item Experimental Results for Ministral model
+\item Experimental Results for Mistral model
 \end{itemize}
 
-To compare with the two models presented before, we also tested the ministral model, which is a general LLM, on the same task. The following results are obtained without specific training.
+To compare with the two models presented before, we also tested the Mistral model, which is a general LLM, on the same task. The following results are obtained without specific training.
 
 \begin{table}[h]
     \centering
@@ -412,10 +412,30 @@ To compare with the two models presented before, we also tested the ministral mo
          Few shot& 1.0&0.97&0.551&0.605\\
          \hline
     \end{tabular}
-    \caption{Results of Ministral without fine-tuning}
+    \caption{Results of Mistral 8B without fine-tuning}
     \label{tab:my_label}
 \end{table}
-As it can be seen in the last column, the performance of the model are way lower than the specialized ones. Ministral seems to face difficulties when it comes to the understanding and re-use the schema of the database. It often makes mistakes in the naming of attributes (for example, "Country" is replaced by "Citizenship") but the few shot strategy enable it to perform way better. This leads to consider a fine-tuned model which learned the table and their attributes as well as the expected format of the gold answers. 
+As it can be seen in the last column, the performance of the model are way lower than the specialized ones. Mistral seems to face difficulties when it comes to the understanding and re-use the schema of the database. It often makes mistakes in the naming of attributes (for example, "Country" is replaced by "Citizenship") but the few shot strategy enable it to perform way better. This leads to consider a fine-tuned model which learned the table and their attributes as well as the expected format of the gold answers. 
+
+\begin{itemize}
+\item Experimental Results for Llama 3B model
+\end{itemize}
+In order to check the performances of fine-tuned models, we trained the Llama 3B model, which is way lighter than mistral 8B, on the train dataset created based on the inputs from Spider. 
+\begin{table}[h]
+    \centering
+    \begin{tabular}{|c|c|c|c|c|}
+        \hline
+         \textbf{Prompt}& \textbf{Semantic} & \textbf{keyword}&\textbf{Identifier}& \textbf{Execution}\\
+         \hline
+         Zero shot& 1.0&0.958&0.0.618&0.672\\
+         Few shot& 1.0&0.952&0.591&0.579\\
+         \hline
+    \end{tabular}
+    \caption{Results of Llama 3B with fine-tuning}
+    \label{tab:my_label}
+\end{table}
+
+It appears here that a smaller model achieves comparable results after a short training session (about 8 epochs) so it might be interesting to train a bigger model to see if it can outperform a specialized one.
 \section*{Conclusion}
 
 In this project, we explored the generation of SQL queries using LLMs. Different types of models have been tested to determine which one would be the most suitable for this task. To compare them, we used many metrics with various goals such as analysing the correctness of the query, its proximity with the expected one, or its results when executed on the database. For the latter to work, we had to generate a synthetic database with the same structure as XLangAI Spider using a LLM to populate it once the table and attribute are retrieved. Plus, we studied the zero shot, few shot, and schema linking prompt engineering approaches for standard models and a fine-tuned one.\\
